@@ -1,0 +1,66 @@
+---
+- name: Setup all necessary tools on multiple servers
+  hosts: all
+  become: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python
+
+  tasks:
+    - name: Update package index
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install base packages
+      apt:
+        name:
+          - nginx
+          - mysql-server
+          - postgresql-16
+          - python3.12
+          - python3.12-venv
+          - python3-pip
+          - build-essential
+          - git
+          - php8.3
+          - curl
+          - gnupg2
+          - software-properties-common
+        state: present
+
+    - name: Install NVM (Node Version Manager)
+      shell: |
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+      args:
+        executable: /bin/bash
+
+    - name: Install Prometheus and Node Exporter
+      shell: |
+        useradd --no-create-home --shell /bin/false prometheus || true
+        mkdir -p /etc/prometheus /var/lib/prometheus
+        curl -LO https://github.com/prometheus/prometheus/releases/download/v2.52.0/prometheus-2.52.0.linux-amd64.tar.gz
+        tar xvf prometheus-2.52.0.linux-amd64.tar.gz
+        cp prometheus-2.52.0.linux-amd64/prometheus /usr/local/bin/
+        cp prometheus-2.52.0.linux-amd64/promtool /usr/local/bin/
+        curl -LO https://github.com/prometheus/node_exporter/releases/download/v1.8.1/node_exporter-1.8.1.linux-amd64.tar.gz
+        tar xvf node_exporter-1.8.1.linux-amd64.tar.gz
+        cp node_exporter-1.8.1.linux-amd64/node_exporter /usr/local/bin/
+      args:
+        executable: /bin/bash
+
+    - name: Fix broken packages
+      shell: sudo apt --fix-broken install -y
+      args:
+        executable: /bin/bash
+
+    - name: Install Jenkins and dependencies
+      shell: |
+        sudo apt-get install -y net-tools
+        sudo wget -O /etc/apt/keyrings/jenkins-keyring.asc https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+        echo "deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/" | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+        sudo apt-get update
+        sudo apt-get install -y jenkins
+      args:
+        executable: /bin/bash
+

@@ -1,0 +1,82 @@
+---
+- name: Setup all necessary tools on multiple servers
+  hosts: all
+  become: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+
+    - name: Show current user and home directory
+      debug:
+        msg: "Running as {{ ansible_user }} with HOME {{ ansible_env.HOME }}"
+
+    - name: Update package index
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install base packages
+      apt:
+        name:
+          - nginx
+          - mysql-server
+          - postgresql-16
+          - python3.12
+          - python3.12-venv
+          - python3-pip
+          - build-essential
+          - git
+          - php8.3
+          - curl
+          - gnupg2
+          - software-properties-common
+        state: present
+
+    - name: Install NVM (Node Version Manager)
+      shell: |
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+      args:
+        executable: /bin/bash
+        creates: "{{ ansible_env.HOME }}/.nvm/nvm.sh"
+      environment:
+        HOME: "{{ ansible_env.HOME }}"
+
+    - name: Install Prometheus and Node Exporter
+      shell: |
+        useradd --no-create-home --shell /bin/false prometheus || true
+        mkdir -p /etc/prometheus /var/lib/prometheus
+        curl -LO https://github.com/prometheus/prometheus/releases/download/v2.52.0/prometheus-2.52.0.linux-amd64.tar.gz
+        tar xvf prometheus-2.52.0.linux-amd64.tar.gz
+        cp prometheus-2.52.0.linux-amd64/prometheus /usr/local/bin/
+        cp prometheus-2.52.0.linux-amd64/promtool /usr/local/bin/
+        curl -LO https://github.com/prometheus/node_exporter/releases/download/v1.8.1/node_exporter-1.8.1.linux-amd64.tar.gz
+        tar xvf node_exporter-1.8.1.linux-amd64.tar.gz
+        cp node_exporter-1.8.1.linux-amd64/node_exporter /usr/local/bin/
+      args:
+        executable: /bin/bash
+        creates: /usr/local/bin/node_exporter
+
+    - name: Fix broken packages
+      shell: apt --fix-broken install -y
+      args:
+        executable: /bin/bash
+
+    - name: Install Jenkins and dependencies
+      shell: |
+        apt-get install -y net-tools openjdk-17-jdk || true
+        mkdir -p /etc/apt/keyrings
+        wget -O /etc/apt/keyrings/jenkins-keyring.asc https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+        echo "deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/" | tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+        apt-get update
+        apt-get install -y jenkins
+      args:
+        executable: /bin/bash
+      register: jenkins_result
+      ignore_errors: yes
+
+    - name: Fail if Jenkins install failed
+      fail:
+        msg: "Jenkins installation failed on {{ inventory_hostname }}."
+      when: jenkins_result.rc != 0
