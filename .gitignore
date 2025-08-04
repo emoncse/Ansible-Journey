@@ -1,0 +1,36 @@
+# Ansible-related
+*.retry             # Failed playbook run retry files
+*.log               # Log files from execution
+
+# SSH-related
+*.pem
+*.key
+*.pub
+.ssh/
+.ssh_config
+
+# Vault files
+*.vault
+*.vault_pass
+.vault_pass.txt
+
+# Inventory and host-specific data
+inventory/*
+!inventory/hosts.yml
+host_vars/*
+!host_vars/example.yml
+group_vars/*
+!group_vars/all.yml
+
+# Python virtual environment
+.venv/
+env/
+__pycache__/
+*.pyc
+
+# Editor and system files
+*.swp
+*.swo
+*.bak
+.DS_Store
+Thumbs.db
